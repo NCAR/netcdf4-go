@@ -29,9 +29,9 @@ func (f *file) Open(filePath string, fMode FileMode, fFormat FileFormat) (err er
 	f.format = fFormat
 	f.mode = fMode
 	if f.mode == WRITE || f.mode == READ {
-		f.myId, err = ncOpen(filePath, f.mode, f.format)
+		f.myId, err = Open(filePath, f.mode, f.format)
 	} else if f.mode == NEWFILE || f.mode == REPLACE {
-		f.myId, err = ncCreate(filePath, f.mode, f.format)
+		f.myId, err = Create(filePath, f.mode, f.format)
 	} else {
 		err = fmt.Errorf("error wrong filemode in file.Open")
 	}

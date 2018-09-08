@@ -31,7 +31,6 @@ func NewType(id NcType) (t Type) {
 	return
 }
 
-
 var Byte = NewType(C.NC_BYTE)
 var Ubyte = NewType(C.NC_UBYTE)
 var Char = NewType(C.NC_CHAR)
@@ -48,4 +47,45 @@ var String = NewType(C.NC_STRING)
 /*! Returns true if this object is null (i.e. it has no contents); otherwise returns false. */
 func (t Type) IsNull() bool {
 	return t.nullObject
+}
+
+func (t Type) GetId() NcType {
+	return t.myId
+}
+
+///////////////////////////////////////////////////////
+// Check if this is a complex type
+// i.e. NC_VLEN, NC_OPAQUE, NC_ENUM, or NC_COMPOUND
+
+func (t Type) IsComplex() bool {
+
+	switch t.myId {
+	case C.NC_BYTE:
+		return false
+	case C.NC_UBYTE:
+		return false
+	case C.NC_CHAR:
+		return false
+	case C.NC_SHORT:
+		return false
+	case C.NC_USHORT:
+		return false
+	case C.NC_INT:
+		return false
+	case C.NC_UINT:
+		return false
+	case C.NC_INT64:
+		return false
+	case C.NC_UINT64:
+		return false
+	case C.NC_FLOAT:
+		return false
+	case C.NC_DOUBLE:
+		return false
+	case C.NC_STRING:
+		return false
+	default:
+		return true
+	}
+
 }
