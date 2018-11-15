@@ -886,7 +886,7 @@ func (group Group) AddDim(name string, dimSize uint) (Dim, error) {
 	if group.IsNull() {
 		return NewDimNull(), fmt.Errorf("error: attempt to invoke addDim on a Null group")
 	}
-	dimId, err := ncDefDim(group.id, name, SIZE(dimSize))
+	dimId, err := ncDefDim(group.id, name, SizeT(dimSize))
 	if err != nil {
 		return NewDimNull(), err
 	}

@@ -2,18 +2,19 @@ package main
 
 // #include <stdlib.h>
 // #include <netcdf.h>
-import "C"
+// import "C"
 import (
-	"netcdf4"
-	"log"
 	"fmt"
+	"log"
+
+	"github.com/NCAR/netcdf4-go"
 )
 
 func main() {
 
-	file := netcdf4.File()
+	file := netcdf4.NewFile()
 	//err := file.Open("/Users/hhuang/Downloads/regions.nc", netcdf4.NEWFILE, netcdf4.NETCDF4)
-	err := file.Open("/Users/hhuang/Downloads/regions.nc", netcdf4.REPLACE, netcdf4.UNKNOWN)
+	err := file.Open("regions.nc", netcdf4.REPLACE, netcdf4.UNKNOWN)
 
 	if err != nil {
 		log.Fatal(err)
@@ -69,19 +70,19 @@ func main() {
 	tempVar, err := grpWyoming.AddVar("average_temperature", netcdf4.Float, []netcdf4.Dim{USATimeDim, WyomingStationsDim})
 	//tempVar2, err := grpWyoming.AddVar("average_temperature1", netcdf4.Float, []netcdf4.Dim{})
 	fmt.Println(tempVar.DataLength())
-	//fmt.Println(tempVar2.DataLength())
+	//fmt.Println(tempVa/r2.DataLength())
 
-	//idW,_:= grpWyoming.GetId()
-	//idC,_:= grpColorado.GetId()
-	//idA,_:= grpAlaska.GetId()
-	//idU,_:= grpUSA.GetId()
-	//fmt.Println(grpAlaska.GetDim("time",netcdf4.ParentsAndCurrent))
-	//fmt.Println(grpAlaska.GetDims("time",netcdf4.ParentsAndCurrent))
-	//fmt.Println(grpWyoming.GetDim("time",netcdf4.ParentsAndCurrent))
-	//fmt.Println(netcdf4.NcInqDimids(idW,true))
-	//fmt.Println(netcdf4.NcInqDimids(idC,true))
-	//fmt.Println(netcdf4.NcInqDimids(idA,true))
-	//fmt.Println(netcdf4.NcInqDimids(idU,true))
+	idW, _ := grpWyoming.ID()
+	idC, _ := grpColorado.ID()
+	idA, _ := grpAlaska.ID()
+	idU, _ := grpUSA.ID()
+	fmt.Println(grpAlaska.GetDim("time", netcdf4.ParentsAndCurrent))
+	fmt.Println(grpAlaska.GetDims("time", netcdf4.ParentsAndCurrent))
+	fmt.Println(grpWyoming.GetDim("time", netcdf4.ParentsAndCurrent))
+	fmt.Println(netcdf4.NcInqDimids(idW, true))
+	fmt.Println(netcdf4.NcInqDimids(idC, true))
+	fmt.Println(netcdf4.NcInqDimids(idA, true))
+	fmt.Println(netcdf4.NcInqDimids(idU, true))
 	//tempVar, err := grpWyoming.AddVarScalar("average_temperature1", netcdf4.Double, )
 	//tempVar.PutValAll(2.)
 	//fmt.Println(tempVar,err)
