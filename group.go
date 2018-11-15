@@ -24,22 +24,22 @@ import (
 //
 //////////////////////////////////////////////////////////////////////
 
+//Group represents a netCDF4 group
 type Group struct {
 	nullObject bool
-
-	myId ID
+	id         ID
 
 	// option to use the 'proposed_standard_name' attribute instead
 	// of 'standard_name'.
-
 	useProposedStandardName bool
 }
 
 /*!
-  The enumeration list contains the options for selecting groups (used for returned set of Group objects).
+  GroupLocation is an enumeration list contains the options for selecting groups (used for returned set of Group objects).
 */
 type GroupLocation int
 
+//Known enums
 const (
 	ChildrenGrps           GroupLocation = iota //!< Select from the set of children in the current group.
 	ParentsGrps                                 //!< Select from set of parent groups (excludes the current group).
@@ -53,6 +53,7 @@ const groupLocationName = "ChildrenGrpsParentsGrpsChildrenOfChildrenGrpsAllChild
 
 var groupLocationIndex = [...]uint8{0, 12, 23, 45, 60, 81, 88}
 
+//String conforms to fmt.Stringer interface
 func (i GroupLocation) String() string {
 	if i < 0 || i >= GroupLocation(len(groupLocationIndex)-1) {
 		return "GroupLocation(" + strconv.FormatInt(int64(i), 10) + ")"
@@ -60,6 +61,7 @@ func (i GroupLocation) String() string {
 	return groupLocationName[groupLocationIndex[i]:groupLocationIndex[i+1]]
 }
 
+//Location is ....
 type Location int
 
 const (
@@ -82,166 +84,137 @@ func (i Location) String() string {
 	return locationName[locationIndex[i]:locationIndex[i+1]]
 }
 
-func NewGroupNull() (group Group) {
-	group.nullObject = true
-	group.myId = -1
-	group.useProposedStandardName = false
-	return
+//NewGroupNull returns an empty group
+func NewGroupNull() Group {
+	return Group{nullObject: true, id: -1, useProposedStandardName: false}
 }
 
-func NewGroup(groupId ID) (group Group) {
-	group.nullObject = false
-	group.myId = groupId
-	group.useProposedStandardName = false
-	return
+//NewGroup returns a new group where its ID is set
+func NewGroup(groupId ID) Group {
+	return Group{nullObject: false, id: groupId, useProposedStandardName: false}
 }
 
+//NewGroupFrom creates a new group from the pass parent??
 func NewGroupFrom(rhs Group) (group Group) {
-	group.nullObject = rhs.nullObject
-	group.myId = rhs.myId
-	group.useProposedStandardName = rhs.useProposedStandardName
-	return
-}
-
-func (group Group) NewGroupWith(groupId ID) {
-	group.nullObject = false
-	group.myId = groupId
-	group.useProposedStandardName = false
-	return
+	return Group{nullObject: rhs.nullObject, id: rhs.id, useProposedStandardName: rhs.useProposedStandardName}
 }
 
 // /////////////
 // Group-related methods
 // /////////////
 
-// Get the group name.
-func (group Group) GetName(fullName bool /*false*/) (string, error) {
-	if group.IsNull() {
+// Name gets the group name
+func (g Group) Name(fullName bool) (string, error) {
+	if g.IsNull() {
 		return "", fmt.Errorf("error: attempt to invoke GetName on a Null group")
 	}
-	var groupName string
-	var err error
 	if fullName {
 		// return full name of group with foward "/" separarating sub-groups.
-		if groupName, err = ncInqGrpnameFull(group.myId); err != nil {
-			return groupName, err
-		}
-	} else {
-		// return the (local) name of this group.
-		if groupName, err = ncInqGrpname(group.myId); err != nil {
-			return groupName, err
-		}
+		return ncInqGrpnameFull(g.id)
 	}
-	return groupName, nil
+	// return the (local) name of this group.
+	return ncInqGrpname(g.id)
 }
 
-// returns true if this is the root group.
-func (group Group) IsRootGroup() (bool, error) {
-	grpName, err := group.GetName(false)
-	if err != nil {
-		return false, err
+// IsRootGroup returns true if this is the group root.
+func (g Group) IsRootGroup() (bool, error) {
+	grpName, err := g.Name(false)
+	if err == nil {
+		return grpName == "/", nil
 	}
-	if grpName == "/" {
-		return true, nil
-	} else {
-		return false, nil
-	}
+	return false, err
 }
 
-// Get the parent group.
-func (group Group) GetParentGroup() (Group, error) {
-	if group.IsNull() {
+//GetParentGroup returns the parent group. Get the parent group.
+func (g Group) GetParentGroup() (Group, error) {
+	if g.IsNull() {
 		return NewGroupNull(), fmt.Errorf("error: attempt to invoke GetParentGroup on a Null group")
 	}
 
-	if parentId, err := ncInqGrpParent(group.myId); err != nil {
-		return NewGroupNull(), nil //if no parent id is found, return null group
-	} else {
-		return NewGroup(parentId), nil
+	if parentID, err := ncInqGrpParent(g.id); err == nil {
+		return NewGroup(parentID), nil
 	}
+	//if no parent id is found, return null group
+	return NewGroupNull(), nil
+
 }
 
-// Get the group id.
-func (group Group) GetId() (ID, error) {
-	if group.IsNull() {
+// ID returns the group ID
+func (g Group) ID() (ID, error) {
+	if g.IsNull() {
 		return ID(-1), fmt.Errorf("error: attempt to invoke GetId on a Null group")
 	}
-	return group.myId, nil
+	return g.id, nil
 }
 
-// Get the number of Group objects.
-func (group Group) GetGroupCount(location GroupLocation /*ChildrenGrps*/) (int, error) {
-
-	if group.IsNull() {
+// GetGroupCount returns the number of ??children ??? groups? objects.
+func (g Group) GetGroupCount(location GroupLocation) (int, error) {
+	if g.IsNull() {
 		return -1, fmt.Errorf("error: attempt to invoke GetGroupCount on a Null group")
 	}
-	myId, _ := group.GetId()
-	// initialize group counter
-	nGroups := 0
+
+	n := 0 // initialize group counter
 
 	// record this group
 	if location == ParentsAndCurrentGrps || location == AllGrps {
-		nGroups ++
+		n++
 	}
 
 	// number of children in current group
 	if location == ChildrenGrps || location == AllChildrenGrps || location == AllGrps {
-		if numGrps, _, err := NcInqGrps(myId); err != nil {
+		numGrps, _, err := NcInqGrps(g.id)
+		if err != nil {
 			return -1, err
-		} else {
-			nGroups += numGrps
 		}
+		n += numGrps
 	}
 
 	// search in parent groups
 	if location == ParentsGrps || location == ParentsAndCurrentGrps || location == AllGrps {
-		groups, err := group.GetGroupsM(ParentsGrps)
+		groups, err := g.GetGroupsM(ParentsGrps)
 		if err != nil {
 			return -1, err
 		}
-		nGroups += len(groups)
+		n += len(groups)
 	}
 	// get the number of all children that are childreof children
 	if location == ChildrenOfChildrenGrps || location == AllChildrenGrps || location == AllGrps {
-		groups, err := group.GetGroupsM(ChildrenOfChildrenGrps)
+		groups, err := g.GetGroupsM(ChildrenOfChildrenGrps)
 		if err != nil {
 			return -1, err
 		}
-		nGroups += len(groups)
+		n += len(groups)
 	}
 
-	return nGroups, nil
+	return n, nil
 }
 
-// Get the set of child Group objects.
-
-func (group Group) GetGroupsM(location GroupLocation /*ChildrenGrps*/) (MultimapG, error) {
+// GetGroupsM retrieves the ..... ?? Get the set of child Group objects.
+func (g Group) GetGroupsM(location GroupLocation) (MultimapG, error) {
 	ncGroups := NewMultimapG()
-
-	if group.IsNull() {
+	if g.IsNull() {
 		return ncGroups, fmt.Errorf("error: attempt to invoke GetGroupsM on a Null group")
 	}
-	myId, _ := group.GetId()
 
 	// record this group
 	if location == ParentsAndCurrentGrps || location == AllGrps {
-		if name, err := group.GetName(false); err != nil {
+		if name, err := g.Name(false); err != nil {
 			return ncGroups, err
 		} else {
-			ncGroups.Add(name, group)
+			ncGroups.Add(name, g)
 		}
 	}
 
 	// the child groups of the current group
 	if location == ChildrenGrps || location == AllChildrenGrps || location == AllGrps {
 		// get the number of groups
-		numGrps, ncIds, err := NcInqGrps(myId)
+		numGrps, ncIds, err := NcInqGrps(g.id)
 		if err != nil {
 			return ncGroups, err
 		}
 		for i := 0; i < numGrps; i++ {
 			tmpGroup := NewGroup(ncIds[i])
-			name, err := tmpGroup.GetName(false)
+			name, err := tmpGroup.Name(false)
 			if err != nil {
 				return ncGroups, err
 			}
@@ -251,7 +224,7 @@ func (group Group) GetGroupsM(location GroupLocation /*ChildrenGrps*/) (Multimap
 
 	// search in parent groups.
 	if location == ParentsGrps || location == ParentsAndCurrentGrps || location == AllGrps {
-		tmpGroup := NewGroupFrom(group)
+		tmpGroup := NewGroupFrom(g)
 		isRG, err := tmpGroup.IsRootGroup()
 		if err != nil {
 			return ncGroups, err
@@ -265,7 +238,7 @@ func (group Group) GetGroupsM(location GroupLocation /*ChildrenGrps*/) (Multimap
 				if parentGroup.IsNull() {
 					break
 				}
-				name, err := parentGroup.GetName(false)
+				name, err := parentGroup.Name(false)
 				if err != nil {
 					return ncGroups, err
 				}
@@ -277,7 +250,7 @@ func (group Group) GetGroupsM(location GroupLocation /*ChildrenGrps*/) (Multimap
 
 	// search in child groups of the children
 	if location == ChildrenOfChildrenGrps || location == AllChildrenGrps || location == AllGrps {
-		groupMs, err := group.GetGroupsM(ChildrenGrps)
+		groupMs, err := g.GetGroupsM(ChildrenGrps)
 		if err != nil {
 			return ncGroups, err
 		}
@@ -343,7 +316,7 @@ func (group Group) AddGroup(name string) (Group, error) {
 	if group.IsNull() {
 		return NewGroupNull(), fmt.Errorf("error: attempt to invoke addGroup on a Null group")
 	}
-	newId, err := ncDefGrp(group.myId, name)
+	newId, err := ncDefGrp(group.id, name)
 	if err != nil {
 		return NewGroupNull(), err
 	}
@@ -368,7 +341,7 @@ func (group Group) GetVarCount(location Location /*Current*/) (int, error) {
 	nvars := 0
 	if (location == ParentsAndCurrent || location == ChildrenAndCurrent ||
 		location == Current || location == All) && !tmpGroup.IsNull() {
-		id, err := tmpGroup.GetId()
+		id, err := tmpGroup.ID()
 		if err != nil {
 			return -1, err
 		}
@@ -385,7 +358,7 @@ func (group Group) GetVarCount(location Location /*Current*/) (int, error) {
 			return -1, err
 		}
 		for !tmpGroup.IsNull() {
-			id, err := tmpGroup.GetId()
+			id, err := tmpGroup.ID()
 			if err != nil {
 				return -1, err
 			}
@@ -426,7 +399,7 @@ func (group Group) GetVarCount(location Location /*Current*/) (int, error) {
 
 func (group Group) GetVarsM(location Location) (MultimapV, error) {
 	ncVars := NewMultimapV() // create a container to hold the Var's.
-	myId, err := group.GetId()
+	myId, err := group.ID()
 	if err != nil {
 		return ncVars, err
 	}
@@ -459,7 +432,7 @@ func (group Group) GetVarsM(location Location) (MultimapV, error) {
 		for !tmpGroup.IsNull() {
 			// get the number of variables
 			// get the number of variables.
-			tmpID, _ := tmpGroup.GetId()
+			tmpID, _ := tmpGroup.ID()
 			varCount, varIds, err := NcInqVarids(tmpID)
 			if err != nil {
 				return ncVars, err
@@ -538,7 +511,6 @@ func (group Group) GetVar(name string, location Location /*Current*/) (Var, erro
 	}
 }
 
-
 // Add a new netCDF variable.
 func (group Group) AddVarScalar(name string, varType interface{}) (Var, error) {
 	return group.AddVar(name, varType, []string{})
@@ -546,7 +518,7 @@ func (group Group) AddVarScalar(name string, varType interface{}) (Var, error) {
 
 // Add a new netCDF variable.
 func (group Group) AddVar(name string, varType, dims interface{}) (Var, error) {
-	CheckDefineMode(group.myId)
+	CheckDefineMode(group.id)
 	var typeId NcType
 	var dimIDs []ID
 	errType := fmt.Errorf("io error:attempt to invoke Group.addVar failed: varType " +
@@ -585,7 +557,7 @@ func (group Group) AddVar(name string, varType, dims interface{}) (Var, error) {
 			if tmpDim.IsNull() {
 				return NewVarNull(), errDim
 			}
-			dimIDs = append(dimIDs, tmpDim.GetId())
+			dimIDs = append(dimIDs, tmpDim.ID())
 		}
 	case []string:
 		{
@@ -597,7 +569,7 @@ func (group Group) AddVar(name string, varType, dims interface{}) (Var, error) {
 				if tmpDim.IsNull() {
 					return NewVarNull(), errDim
 				}
-				dimIDs = append(dimIDs, tmpDim.GetId())
+				dimIDs = append(dimIDs, tmpDim.ID())
 				fmt.Println(tmpDim)
 			}
 		}
@@ -613,7 +585,7 @@ func (group Group) AddVar(name string, varType, dims interface{}) (Var, error) {
 			if !isValid {
 				return NewVarNull(), fmt.Errorf("io error: Dim is not the valid dimension for this group")
 			}
-			dimIDs = append(dimIDs, dimTmp.GetId())
+			dimIDs = append(dimIDs, dimTmp.ID())
 		}
 	case []Dim:
 		{
@@ -628,14 +600,14 @@ func (group Group) AddVar(name string, varType, dims interface{}) (Var, error) {
 				if !isValid {
 					return NewVarNull(), fmt.Errorf("io error: Dim is not the valid dimension for this group")
 				}
-				dimIDs = append(dimIDs, tmpDim.GetId())
+				dimIDs = append(dimIDs, tmpDim.ID())
 			}
 		}
 	default:
 		return NewVarNull(), errDim
 	}
 	// finally define a new netCDF  variable varId;
-	varId, err := NcDefVar(group.myId, name, typeId, dimIDs)
+	varId, err := NcDefVar(group.id, name, typeId, dimIDs)
 	// return an Var object for this new variable
 	return NewVar(group, varId), err
 }
@@ -692,7 +664,6 @@ func (group Group) GetType(name string, location Location) (Type, error) {
 	//return ret.first- > second;
 }
 
-
 // Adds a new netCDF Enum type.
 //NcxxEnumType NcxxGroup::addEnumType(const string& name,NcxxEnumType::ncEnumType baseType) const {
 //ncxxCheckDefineMode(myId);
@@ -748,7 +719,7 @@ func (group Group) GetDimCount(location Location /*Current*/) (int, error) {
 	if group.IsNull() {
 		return -1, fmt.Errorf("error: attempt to invoke GetDimCount on a Null group")
 	}
-	myId, _ := group.GetId()
+	myId, _ := group.ID()
 
 	// intialize counter
 	ndims := 0
@@ -802,7 +773,7 @@ func (group Group) GetDimsM(location Location /*Current*/) (MultimapD, error) {
 	if group.IsNull() {
 		return ncDims, fmt.Errorf("error: attempt to invoke GetDimsM on a Null group")
 	}
-	myId, _ := group.GetId()
+	myId, _ := group.ID()
 
 	// search in current group
 	if location == Current || location == ParentsAndCurrent || location == ChildrenAndCurrent || location == All {
@@ -820,7 +791,7 @@ func (group Group) GetDimsM(location Location /*Current*/) (MultimapD, error) {
 			// now get the name of each Dim and populate the nDims container.
 			for i := 0; i < dimCount; i++ {
 				tmpDim := NewDim(group, dimIds[i])
-				dimName, err := tmpDim.GetName()
+				dimName, err := tmpDim.Name()
 				if err != nil {
 					return ncDims, err
 				}
@@ -873,7 +844,7 @@ func (group Group) GetDimsM(location Location /*Current*/) (MultimapD, error) {
 
 //// Get the named Dim object.
 
-func (group Group) GetDim(name string, location Location/*Current*/) (Dim, error) {
+func (group Group) GetDim(name string, location Location /*Current*/) (Dim, error) {
 	if group.IsNull() {
 		return NewDimNull(), fmt.Errorf("error: attempt to invoke GetDim on a Null group")
 	}
@@ -911,11 +882,11 @@ func (group Group) GetDims(name string, location Location) (SetD, error) {
 // Add a new Dim object.
 
 func (group Group) AddDim(name string, dimSize uint) (Dim, error) {
-	CheckDefineMode(group.myId)
+	CheckDefineMode(group.id)
 	if group.IsNull() {
 		return NewDimNull(), fmt.Errorf("error: attempt to invoke addDim on a Null group")
 	}
-	dimId, err := ncDefDim(group.myId, name, SIZE(dimSize))
+	dimId, err := ncDefDim(group.id, name, SIZE(dimSize))
 	if err != nil {
 		return NewDimNull(), err
 	}
@@ -926,11 +897,11 @@ func (group Group) AddDim(name string, dimSize uint) (Dim, error) {
 // Add a new Dim object with unlimited size..
 
 func (group Group) AddDimUl(name string) (Dim, error) {
-	CheckDefineMode(group.myId)
+	CheckDefineMode(group.id)
 	if group.IsNull() {
 		return NewDimNull(), fmt.Errorf("error: attempt to invoke addDim on a Null group")
 	}
-	dimId, err := ncDefDim(group.myId, name, NCUNLIMITED)
+	dimId, err := ncDefDim(group.id, name, NCUNLIMITED)
 	if err != nil {
 		return NewDimNull(), err
 	}

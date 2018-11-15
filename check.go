@@ -1,12 +1,11 @@
 package netcdf4
 
-// Function checks if the file (group) is in define mode.
+// CheckDefineMode checks if the file (group) is in define mode.
 // If not, it places it in the define mode.
 // While this is automatically done by the underlying C API
 // for netCDF-4 files, the netCDF-3 files still need this call.
-
-func CheckDefineMode(ncId ID) error {
-	ncRedef(ncId)
+func CheckDefineMode(ncid ID) error {
+	ncRedef(ncid)
 	//if status != NC_EINDEFINE{ //TODO redefine
 	//	return
 	//}

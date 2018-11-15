@@ -22,7 +22,7 @@ func NewVarNull() (v Var) {
 func NewVar(group Group, vID ID) (v Var) {
 	v.nullObject = false
 	v.myId = vID
-	v.groupId, _ = group.GetId()
+	v.groupId, _ = group.ID()
 	return
 }
 
@@ -128,7 +128,6 @@ func (v Var) GetType() (Type, error) {
 // Gets the set of Ncdim objects.
 func (v Var) GetDims() ([]Dim, error) {
 
-
 	dimCount, dimIds, err := NcInqVardimid(v.groupId, v.myId)
 	if err != nil {
 		return []Dim(nil), err
@@ -136,7 +135,7 @@ func (v Var) GetDims() ([]Dim, error) {
 
 	ncDims := make([]Dim, dimCount)
 	for i := 0; i < dimCount; i++ {
-		ncDims[i]= NewDim(v.GetParentGroup(), dimIds[i])
+		ncDims[i] = NewDim(v.GetParentGroup(), dimIds[i])
 	}
 
 	return ncDims, nil
