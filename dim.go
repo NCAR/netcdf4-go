@@ -13,7 +13,6 @@ func NewDimNull() (dim Dim) {
 		id:         -1,
 		group:      -1,
 	}
-	return
 }
 
 // NewDim create a new dimension attached to the passed group
@@ -34,7 +33,7 @@ func (dim Dim) GetSize() (lenDim int, err error) {
 }
 
 // GetParentGroup gets a NcxxGroup object of the parent group.
-func (dim Dim) GetParentGroup() Group {
+func (dim Dim) GetParentGroup() *Group {
 	return NewGroup(dim.group)
 }
 

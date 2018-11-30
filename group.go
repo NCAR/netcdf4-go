@@ -2,7 +2,10 @@ package netcdf4
 
 import (
 	"fmt"
+	"log"
+	"sort"
 	"strconv"
+	"strings"
 )
 
 //////////////////////////////////////////////////////////////////////
@@ -34,19 +37,18 @@ type Group struct {
 	useProposedStandardName bool
 }
 
-/*!
-  GroupLocation is an enumeration list contains the options for selecting groups (used for returned set of Group objects).
-*/
+/*GroupLocation is an enumeration list contains the options for
+selecting groups (used for returned set of Group objects).*/
 type GroupLocation int
 
 //Known enums
 const (
-	ChildrenGrps           GroupLocation = iota //!< Select from the set of children in the current group.
-	ParentsGrps                                 //!< Select from set of parent groups (excludes the current group).
-	ChildrenOfChildrenGrps                      //!< Select from set of all children of children in the current group.
-	AllChildrenGrps                             //!< Select from set of all children of the current group and beneath.
-	ParentsAndCurrentGrps                       //!< Select from set of parent groups(includes the current group).
-	AllGrps                                     //!< Select from set of parent groups, current groups and all the children beneath.
+	ChildrenGrps           GroupLocation = iota // Select from the set of children in the current group.
+	ParentsGrps                                 // Select from set of parent groups (excludes the current group).
+	ChildrenOfChildrenGrps                      // Select from set of all children of children in the current group.
+	AllChildrenGrps                             // Select from set of all children of the current group and beneath.
+	ParentsAndCurrentGrps                       // Select from set of parent groups(includes the current group).
+	AllGrps                                     // Select from set of parent groups, current groups and all the children beneath.
 )
 
 const groupLocationName = "ChildrenGrpsParentsGrpsChildrenOfChildrenGrpsAllChildrenGrpsParentsAndCurrentGrpsAllGrps"
@@ -62,41 +64,48 @@ func (i GroupLocation) String() string {
 }
 
 //Location is ....
-type Location int
+type Location uint
 
+// ....
 const (
-	Current            Location = iota //!< Select from contents of current group.
-	Parents                            //!< Select from contents of parents groups.
-	Children                           //!< Select from contents of children groups.
-	ParentsAndCurrent                  //!< Select from contents of current and parents groups.
-	ChildrenAndCurrent                 //!< Select from contents of current and child groups.
-	All                                //!< Select from contents of current, parents and child groups.
+	Current  Location = 1 << iota // Select from contents of current group.
+	Parents                       // Select from contents of parents groups.
+	Children                      // Select from contents of children groups.
+	All      Location = 0x07      // Select from contents of current, parents and child groups.
 )
 
-const locationName = "CurrentParentsChildrenParentsAndCurrentChildrenAndCurrentAll"
-
-var locationIndex = [...]uint8{0, 7, 14, 22, 39, 57, 60}
-
-func (i Location) String() string {
-	if i < 0 || i >= Location(len(locationIndex)-1) {
-		return "Location(" + strconv.FormatInt(int64(i), 10) + ")"
+func (l Location) String() string {
+	s := []string{}
+	if l&Current == Current {
+		s = append(s, "Current")
 	}
-	return locationName[locationIndex[i]:locationIndex[i+1]]
+	if l&Parents == Parents {
+		s = append(s, "Parents")
+	}
+	if l&Children == Children {
+		s = append(s, "Children")
+	}
+	return strings.Join(s, "|")
+}
+
+//IsSet is true if o is set in the bitfield l
+func (l Location) IsSet(o Location) bool {
+	return l&o == o
 }
 
 //NewGroupNull returns an empty group
-func NewGroupNull() Group {
-	return Group{nullObject: true, id: -1, useProposedStandardName: false}
+func NewGroupNull() *Group {
+	return &Group{nullObject: true, id: -1, useProposedStandardName: false}
 }
 
 //NewGroup returns a new group where its ID is set
-func NewGroup(groupId ID) Group {
-	return Group{nullObject: false, id: groupId, useProposedStandardName: false}
+func NewGroup(groupID ID) *Group {
+	return &Group{nullObject: false, id: groupID, useProposedStandardName: false}
 }
 
 //NewGroupFrom creates a new group from the pass parent??
-func NewGroupFrom(rhs Group) (group Group) {
-	return Group{nullObject: rhs.nullObject, id: rhs.id, useProposedStandardName: rhs.useProposedStandardName}
+func NewGroupFrom(rhs *Group) *Group {
+	return &Group{nullObject: rhs.nullObject, id: rhs.id, useProposedStandardName: rhs.useProposedStandardName}
 }
 
 // /////////////
@@ -104,7 +113,7 @@ func NewGroupFrom(rhs Group) (group Group) {
 // /////////////
 
 // Name gets the group name
-func (g Group) Name(fullName bool) (string, error) {
+func (g *Group) Name(fullName bool) (string, error) {
 	if g.IsNull() {
 		return "", fmt.Errorf("error: attempt to invoke GetName on a Null group")
 	}
@@ -117,7 +126,7 @@ func (g Group) Name(fullName bool) (string, error) {
 }
 
 // IsRootGroup returns true if this is the group root.
-func (g Group) IsRootGroup() (bool, error) {
+func (g *Group) IsRootGroup() (bool, error) {
 	grpName, err := g.Name(false)
 	if err == nil {
 		return grpName == "/", nil
@@ -125,22 +134,24 @@ func (g Group) IsRootGroup() (bool, error) {
 	return false, err
 }
 
-//GetParentGroup returns the parent group. Get the parent group.
-func (g Group) GetParentGroup() (Group, error) {
+//GetParentGroup returns the parent group, or nil on errors
+func (g *Group) GetParentGroup() *Group {
 	if g.IsNull() {
-		return NewGroupNull(), fmt.Errorf("error: attempt to invoke GetParentGroup on a Null group")
+		return nil
+		// return NewGroupNull(), fmt.Errorf("error: attempt to invoke GetParentGroup on a Null group")
 	}
 
 	if parentID, err := ncInqGrpParent(g.id); err == nil {
-		return NewGroup(parentID), nil
+		return NewGroup(parentID)
 	}
+	return nil
 	//if no parent id is found, return null group
-	return NewGroupNull(), nil
+	// return NewGroupNull(), nil
 
 }
 
 // ID returns the group ID
-func (g Group) ID() (ID, error) {
+func (g *Group) ID() (ID, error) {
 	if g.IsNull() {
 		return ID(-1), fmt.Errorf("error: attempt to invoke GetId on a Null group")
 	}
@@ -148,7 +159,7 @@ func (g Group) ID() (ID, error) {
 }
 
 // GetGroupCount returns the number of ??children ??? groups? objects.
-func (g Group) GetGroupCount(location GroupLocation) (int, error) {
+func (g *Group) GetGroupCount(location GroupLocation) (int, error) {
 	if g.IsNull() {
 		return -1, fmt.Errorf("error: attempt to invoke GetGroupCount on a Null group")
 	}
@@ -190,7 +201,7 @@ func (g Group) GetGroupCount(location GroupLocation) (int, error) {
 }
 
 // GetGroupsM retrieves the ..... ?? Get the set of child Group objects.
-func (g Group) GetGroupsM(location GroupLocation) (MultimapG, error) {
+func (g *Group) GetGroupsM(location GroupLocation) (MultimapG, error) {
 	ncGroups := NewMultimapG()
 	if g.IsNull() {
 		return ncGroups, fmt.Errorf("error: attempt to invoke GetGroupsM on a Null group")
@@ -198,11 +209,11 @@ func (g Group) GetGroupsM(location GroupLocation) (MultimapG, error) {
 
 	// record this group
 	if location == ParentsAndCurrentGrps || location == AllGrps {
-		if name, err := g.Name(false); err != nil {
+		name, err := g.Name(false)
+		if err != nil {
 			return ncGroups, err
-		} else {
-			ncGroups.Add(name, g)
 		}
+		ncGroups.Add(name, g)
 	}
 
 	// the child groups of the current group
@@ -231,8 +242,8 @@ func (g Group) GetGroupsM(location GroupLocation) (MultimapG, error) {
 		}
 		if !isRG {
 			for {
-				parentGroup, err := tmpGroup.GetParentGroup()
-				if err != nil {
+				parentGroup := tmpGroup.GetParentGroup()
+				if parentGroup == nil {
 					return ncGroups, err
 				}
 				if parentGroup.IsNull() {
@@ -272,88 +283,90 @@ func (g Group) GetGroupsM(location GroupLocation) (MultimapG, error) {
 	return ncGroups, nil
 }
 
-// Get the named child Group object.
-
-func (group Group) GetGroup(name string, location GroupLocation /*ChildrenGrps*/) (Group, error) {
-	if group.IsNull() {
+//GetGroup the named child Group object.
+func (g *Group) GetGroup(name string, location GroupLocation) (*Group, error) {
+	if g.IsNull() {
 		return NewGroupNull(), fmt.Errorf("error: attempt to invoke GetParentGroup on a Null group")
 	}
-	ncGroups, err := group.GetGroupsM(location)
+	ncGroups, err := g.GetGroupsM(location)
 	if err != nil {
 		return NewGroupNull(), err
 	}
 	ret := ncGroups.EqualRange(name)
 	if len(ret) == 0 {
 		return NewGroupNull(), nil
-	} else {
-		gp := ret[0]
-		return gp, nil
 	}
+	gp := ret[0]
+	return gp, nil
 }
 
-// Get all Group objects with a given name.
-
-func (group Group) GetGroups(name string, location GroupLocation) (SetG, error) {
-	ncSetG := NewSetG()
-	if group.IsNull() {
-		return ncSetG, fmt.Errorf("error: attempt to invoke GetGroups on a Null group")
+//GetGroups returns all Group objects with a given name.  The returned map is nil if g is empty
+func (g *Group) GetGroups(name string, location GroupLocation) []*Group {
+	groups := []*Group{}
+	if g.IsNull() {
+		return groups
 	}
-	ncGroups, err := group.GetGroupsM(location)
+
+	grps, err := g.GetGroupsM(location)
 	if err != nil {
-		return ncSetG, err
+		return groups
 	}
-	ret := ncGroups.EqualRange(name)
-	fmt.Println(ret)
 
+	ret := grps.EqualRange(name)
 	for _, gp := range ret {
-		ncSetG.Add(gp)
+		groups = append(groups, gp)
 	}
-	return ncSetG, nil
+	return groups
 }
 
-// Add a new child Group object.
-func (group Group) AddGroup(name string) (Group, error) {
-	if group.IsNull() {
+//AddGroup adds a child group to g
+func (g *Group) AddGroup(name string) (*Group, error) {
+	if g.IsNull() {
 		return NewGroupNull(), fmt.Errorf("error: attempt to invoke addGroup on a Null group")
 	}
-	newId, err := ncDefGrp(group.id, name)
+	newID, err := ncDefGrp(g.id, name)
 	if err != nil {
 		return NewGroupNull(), err
 	}
-
-	return NewGroup(newId), nil
-
+	return NewGroup(newID), nil
 }
 
-/*! Returns true if this object is null (i.e. it has no contents); otherwise returns false. */
-func (group Group) IsNull() bool {
-	return group.nullObject
+/*IsNull returns true if g is nul or this is a null object (no contents)*/
+func (g *Group) IsNull() bool {
+	return g == nil || g.nullObject
 }
 
-// Get the number of Var objects in this group.
-// Test
-func (group Group) GetVarCount(location Location /*Current*/) (int, error) {
+//GetVarCount gets the number of Var objects in this group.
+func (g *Group) GetVarCount(location Location) int {
+	varsInGroup := func(groupID ID) int {
+		nvars, err := ncInqNvars(groupID)
+		log.Printf("Group.GetVarCount.func1() ncInqNvars(%d) failed: %v", groupID, err)
+		if err != nil {
+			return -1
+		}
+		return nvars
+	}
+	vars := 0
 
 	// search in current group.
-	tmpGroup := NewGroupFrom(group)
-
-	// search in current group
-	nvars := 0
-	if (location == ParentsAndCurrent || location == ChildrenAndCurrent ||
-		location == Current || location == All) && !tmpGroup.IsNull() {
-		id, err := tmpGroup.ID()
-		if err != nil {
-			return -1, err
+	if location.IsSet(Current) && !g.nullObject {
+		v := varsInGroup(g.id)
+		if v == -1 {
+			return -1
 		}
-		nvars, err = ncInqNvars(id)
-		if err != nil {
-			return -1, err
-		}
+		vars += v
 	}
 
-	// search recursively in all parent groups.
-	if location == Parents || location == ParentsAndCurrent || location == All {
-		tmpGroup, err := group.GetParentGroup()
+	if location.IsSet(Parents) && !g.nullObject {
+		parent := g.GetParentGroup()
+		if parent != nil && parent.nullObject {
+			if v == -1 {
+				return -1
+			}
+			vars += v
+		}
+
+		tmpGroup, err := g.GetParentGroup()
 		if err != nil {
 			return -1, err
 		}
@@ -373,11 +386,37 @@ func (group Group) GetVarCount(location Location /*Current*/) (int, error) {
 				return -1, err
 			}
 		}
+		v := varsInGroup(g.id)
+		if v == -1 {
+			return -1
+		}
+		vars += v
+	}
+
+	//
+	// tmpGroup := NewGroupFrom(g)
+
+	// search in current group
+	nvars := 0
+	if (location == ParentsAndCurrent || location == ChildrenAndCurrent || location == Current || location == All) && !tmpGroup.IsNull() {
+		id, err := tmpGroup.ID()
+		if err != nil {
+			return -1, err
+		}
+		nvars, err = ncInqNvars(id)
+		if err != nil {
+			return -1, err
+		}
+	}
+
+	// search recursively in all parent groups.
+	if location == Parents || location == ParentsAndCurrent || location == All {
+
 	}
 
 	// search recursively in all child groups
 	if location == ChildrenAndCurrent || location == Children || location == All {
-		groups, err := group.GetGroupsM(ParentsGrps)
+		groups, err := g.GetGroupsM(ParentsGrps)
 		if err != nil {
 			return -1, err
 		}
@@ -395,27 +434,63 @@ func (group Group) GetVarCount(location Location /*Current*/) (int, error) {
 	return nvars, nil
 }
 
-// Get the collection of Var objects.
-
-func (group Group) GetVarsM(location Location) (MultimapV, error) {
-	ncVars := NewMultimapV() // create a container to hold the Var's.
-	myId, err := group.ID()
-	if err != nil {
-		return ncVars, err
+// GetVars returns a map of groups->variables stored in group.
+//GerVarsM Get the collection of Var objects.  It returns nil on errors
+func (g *Group) GetVars(location Location) map[string]sort.StringSlice {
+	rtn := map[string]sort.StringSlice{}
+	if g.nullObject {
+		return rtn
 	}
-	// search in current group.
-	tmpGroup := NewGroupFrom(group)
 
-	if (location == ParentsAndCurrent || location == ChildrenAndCurrent ||
-		location == Current || location == All) && !tmpGroup.IsNull() {
-		// get the number of variables.
-		varCount, varIds, err := NcInqVarids(myId)
+	// search in current group.
+	tmpGroup := NewGroupFrom(g)
+
+	varsForGroup := func(id ID) sort.StringSlice {
+		r := sort.StringSlice{}
+		_, ids, err := NcInqVarids(g.id)
 		if err != nil {
-			return ncVars, err
+			log.Printf("GetVars() NcInqVarids(%d) failed: %v", g.id, err)
+			return r
 		}
-		for i := 0; i < varCount; i++ {
-			tmpVar := NewVar(group, varIds[i])
-			varName, err := tmpVar.GetName()
+		for _, id := range ids {
+			// tmpVar := NewVar(g, varIds[i])
+			name, err := NcInqVarname(g.id, id)
+			if err != nil {
+				log.Printf("GetVars() NcInqVarname(%d,%d) failed: %v", g.id, id, err)
+			}
+			r = append(r, name)
+		}
+		return r
+	}
+
+	// Current            Location = iota // Select from contents of current group.
+	// Parents                            // Select from contents of parents groups.
+	// Children                           // Select from contents of children groups.
+	// ParentsAndCurrent                  // Select from contents of current and parents groups.
+	// ChildrenAndCurrent                 // Select from contents of current and child groups.
+	// All                                // Select from contents of current, parents and child groups.
+
+	switch location {
+	case Parents, Children: //dont search up or down
+	default: //Current,  ParentsAndCurrent, ChildrenAndCurrent, All
+		// ChildrenAndCurrent                 // Select from contents of current and child groups.
+		// All                                // Select from contents of current, parents and child groups.
+
+		// get the number of variables.
+		// count, ids, err := NcInqVarids(g.id)
+		_, ids, err := NcInqVarids(g.id)
+		if err != nil {
+			log.Printf("GetVars() NcInqVarids(%d) failed: %v", g.id, err)
+			return rtn
+		}
+		rtn[""]
+		for _, id := range ids {
+			// tmpVar := NewVar(g, varIds[i])
+			name, err := NcInqVarname(g.id, id)
+			if err != nil {
+				log.Printf("GetVars() NcInqVarname(%d,%d) failed: %v", g.id, id, err)
+			}
+
 			if err != nil {
 				return ncVars, err
 			}
@@ -423,9 +498,13 @@ func (group Group) GetVarsM(location Location) (MultimapV, error) {
 		}
 	}
 
+	// if (location == ParentsAndCurrent || location == ChildrenAndCurrent || location == Current || location == All) && !tmpGroup.IsNull() {
+
+	// }
+
 	// search recursively in all parent groups.
 	if location == Parents || location == ParentsAndCurrent || location == All {
-		tmpGroup, err = group.GetParentGroup()
+		tmpGroup, err = g.GetParentGroup()
 		if err != nil {
 			return ncVars, err
 		}
@@ -438,7 +517,7 @@ func (group Group) GetVarsM(location Location) (MultimapV, error) {
 				return ncVars, err
 			}
 			for i := 0; i < varCount; i++ {
-				tmpVar := NewVar(group, varIds[i])
+				tmpVar := NewVar(g, varIds[i])
 				varName, err := tmpVar.GetName()
 				if err != nil {
 					return ncVars, err
@@ -456,7 +535,7 @@ func (group Group) GetVarsM(location Location) (MultimapV, error) {
 
 	// search recusively in all child groups.
 	if location == ChildrenAndCurrent || location == Children || location == All {
-		groupMs, err := group.GetGroupsM(ChildrenGrps)
+		groupMs, err := g.GetGroupsM(ChildrenGrps)
 		if err != nil {
 			return ncVars, err
 		}

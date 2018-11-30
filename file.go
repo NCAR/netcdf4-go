@@ -6,7 +6,7 @@ import (
 
 //File represnets an opened netCDF file
 type File struct {
-	Group
+	*Group
 	pathInUse string
 	mode      FileMode
 	format    FileFormat

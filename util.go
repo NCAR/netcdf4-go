@@ -1,6 +1,5 @@
 package netcdf4
 
-
 import "fmt"
 
 //type Set map[interface{}]bool
@@ -114,24 +113,24 @@ import "fmt"
 
 ///////////////////////////////////////////////////
 
-type SetG map[Group]bool
+// type SetG map[*Group]bool
 
-func NewSetG() SetG {
-	return make(map[Group]bool)
-}
+// func NewSetG() SetG {
+// 	return make(map[*Group]bool)
+// }
 
-func (s SetG) Has(v Group) bool {
-	_, ok := s[v]
-	return ok
-}
+// func (s SetG) Has(v *Group) bool {
+// 	_, ok := s[v]
+// 	return ok
+// }
 
-func (s SetG) Add(v Group) {
-	s[v] = true
-}
+// func (s SetG) Add(v *Group) {
+// 	s[v] = true
+// }
 
-func (s SetG) Erase(v Group) {
-	delete(s, v)
-}
+// func (s SetG) Erase(v *Group) {
+// 	delete(s, v)
+// }
 
 ///////////////////////////////////////////////////
 type SetD map[Dim]bool
@@ -175,15 +174,15 @@ func (s SetV) Erase(v Var) {
 
 ///////////////////////////////////////////////////
 // something is wrong about the general type of Multimap with interface{}, no reason is found, thus, we use this one
-type MultimapG map[string]map[Group]bool
+type MultimapG map[string]map[*Group]bool
 
 func NewMultimapG() MultimapG {
-	return make(map[string]map[Group]bool)
+	return make(map[string]map[*Group]bool)
 }
 
-func (m MultimapG) Add(key string, value Group) {
+func (m MultimapG) Add(key string, value *Group) {
 	if !m.HasKey(key) {
-		m[key] = make(map[Group]bool)
+		m[key] = make(map[*Group]bool)
 	}
 	m[key][value] = true
 }
@@ -193,7 +192,7 @@ func (m MultimapG) HasKey(key string) bool {
 	return ok
 }
 
-func (m MultimapG) Has(key string, value Group) bool {
+func (m MultimapG) Has(key string, value *Group) bool {
 	if !m.HasKey(key) {
 		return false
 	}
@@ -202,12 +201,12 @@ func (m MultimapG) Has(key string, value Group) bool {
 	return ok
 }
 
-func (m MultimapG) EqualRange(key string) []Group {
+func (m MultimapG) EqualRange(key string) []*Group {
 	if !m.HasKey(key) {
 		return nil
 	}
 
-	ans := make([]Group, len(m[key]))
+	ans := make([]*Group, len(m[key]))
 	i := 0
 	for v := range m[key] {
 		ans[i] = v
@@ -226,7 +225,7 @@ func (m MultimapG) EraseKey(key string) error {
 	return nil
 }
 
-func (m MultimapG) Erase(key string, value Group) error {
+func (m MultimapG) Erase(key string, value *Group) error {
 	if !m.Has(key, value) {
 		return fmt.Errorf("key value pair [%v, %v] not present in MultimapG", key, value)
 	}
@@ -239,7 +238,7 @@ func (m MultimapG) Erase(key string, value Group) error {
 	return nil
 }
 
-func (m MultimapG) GetAllPair() ([]string, []Group) {
+func (m MultimapG) GetAllPair() ([]string, []*Group) {
 	keys := make([]string, 0)
 	fields := make([]Group, 0)
 	for key := range m {
@@ -356,7 +355,6 @@ func (m MultimapD) Length() int {
 func (m MultimapD) Size() int {
 	return len(m)
 }
-
 
 ///////////////////////////////////////////////////
 // something is wrong about the general type of Multimap with interface{}, no reason is found, thus, we use this one
